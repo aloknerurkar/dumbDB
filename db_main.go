@@ -5,9 +5,11 @@ import (
 	"io"
 	"log"
 	"os"
+	"encoding/json"
 )
 
 const MAX_KEY_LEN = 1024 //bytes
+const DEFAULT_SUFFIX = ".dumbDB"
 
 type Record interface {
 	GetKey() [] byte
@@ -15,7 +17,7 @@ type Record interface {
 }
 
 type DumbDB struct {
-	dbFullName string
+	DbFullName string
 	// Connection to boltDB (more like file descriptor)
 	_db *bolt.DB
 	// Logger
@@ -35,16 +37,35 @@ func NewDumbDB(root_path string, name string, logger_out io.Writer) *DumbDB {
 		dumbDB.err_log.Printf("Root path invalid %s", root_path)
 		return nil
 	}
-	dumbDB.dbFullName = root_path + "/" + name
-	db, err := bolt.Open(dumbDB.dbFullName, 0600, nil)
+	dumbDB.DbFullName = root_path + "/" + name + DEFAULT_SUFFIX
+	db, err := bolt.Open(dumbDB.DbFullName, 0600, nil)
 	if err != nil {
-		dumbDB.err_log.Printf("Failed to open new database path %s", dumbDB.dbFullName)
+		dumbDB.err_log.Printf("Failed to open new database path %s", dumbDB.DbFullName)
 		return nil
 	}
 	dumbDB._db = db
 	dumbDB.info_log.Printf("Created new DB %s", dumbDB._db.Path())
 
 	return dumbDB
+}
+
+func (db *DumbDB) RemoveBucket(bucket string) (err error) {
+	err = db._db.Update(func(tx *bolt.Tx) error {
+		e := tx.DeleteBucket([]byte(bucket))
+		if e != nil || e != bolt.ErrBucketNotFound {
+			db.err_log.Printf("Bucket not found %s.", bucket)
+			return e
+		}
+		return nil
+	})
+	return
+}
+
+func (db * DumbDB) PrintStats() {
+	if os.Getenv("test") == "1" {
+		st := db._db.Stats()
+		json.NewEncoder(os.Stdout).Encode(st)
+	}
 }
 
 func (db *DumbDB) Get(key Record, bucket string) (ret_val []byte, err error) {
@@ -59,6 +80,7 @@ func (db *DumbDB) Get(key Record, bucket string) (ret_val []byte, err error) {
 		ret_val = bkt.Get(key.GetKey())
 		if ret_val != nil {
 			db.info_log.Println("Found key.")
+			return nil
 		}
 
 		return bolt.ErrKeyRequired
@@ -150,15 +172,10 @@ func (db *DumbDB) Remove(key Record, bucket string) error {
 			return bolt.ErrBucketNotFound
 		}
 
-		if v := bkt.Get(key.GetKey()); v != nil {
-			err := bkt.Delete(key.GetKey())
-			if err != nil {
-				db.err_log.Printf("Failed to delete entry. ERR %v", err)
-				return err
-			}
-		} else {
-			db.err_log.Printf("Key not found")
-			return bolt.ErrInvalid
+		err := bkt.Delete(key.GetKey())
+		if err != nil {
+			db.err_log.Printf("Failed to delete entry. ERR %v", err)
+			return err
 		}
 		return nil
 	})
