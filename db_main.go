@@ -125,7 +125,11 @@ func (db *DumbDB) GetLimited(bucket string, size int, cookie Record) (ret_val []
 		if cookie != nil {
 			// This will seek to the last result of the
 			// previous search. Initialize the first to the previous val.
-			_, _ = c.Seek(cookie.GetKey())
+			_k, _ := c.Seek(cookie.GetKey())
+			if _k == nil {
+				db.err_log.Println("Got invalid cookie.")
+				return bolt.ErrKeyRequired
+			}
 			init_kv[0], init_kv[1] = c.Prev()
 		} else {
 			init_kv[0], init_kv[1] = c.Last()

@@ -61,20 +61,37 @@ func TestMain(t *testing.M) {
 
 var user1 = UserRecord {
 	ID: 1,
-	Name: "Alok",
+	Name: "Alan",
 	Position: "Engineer",
 }
 
 var user2 = UserRecord {
 	ID: 2,
-	Name: "Ameya",
+	Name: "Olof",
+	Position: "Doctor",
+}
+
+var user3 = UserRecord {
+	ID: 3,
+	Name: "May",
+	Position: "Architect",
+}
+
+var user4 = UserRecord {
+	ID: 4,
+	Name: "Travis",
+	Position: "Chef",
+}
+
+var user5 = UserRecord {
+	ID: 5,
+	Name: "April",
 	Position: "Engineer",
 }
 
 // 1. Create 2 test records and store
 // 2. Do a GetAll and make sure we return 2 records.
-// 3. Try to store duplicate key => This should error.
-// 4. Try to store key more than 1024 bytes => This should fail.
+// 3. Try to store key more than 1024 bytes => This should fail.
 func TestDumbDB_Store(t *testing.T) {
 
 	dbName := "TestDumbDB_Store"
@@ -231,4 +248,165 @@ func TestDumbDB_Get(t *testing.T) {
 
 	dbP.PrintStats()
 	removeDbFile(dbP.DbFullName)
+}
+
+// 1. Create 2 test records and store
+// 2. Remove the 2 records stored. Should not return error.
+// 3. Try to remove by sending huge key. => This should fail
+func TestDumbDB_GetAllRange(t *testing.T) {
+
+	dbName := "TestDumbDB_GetAll"
+	dbP := dumbDB.NewDumbDB(".", dbName, os.Stdout)
+
+	if dbP == nil {
+		t.Errorf("Error creating DB %s", dbName)
+	}
+
+	err := dbP.Store(user1, dbName)
+	if err != nil {
+		t.Errorf("Error creating Record Record: %v Error: %s", user1, err.Error())
+	}
+
+	err = dbP.Store(user2, dbName)
+	if err != nil {
+		t.Errorf("Error creating Record Record: %v Error: %s", user2, err.Error())
+	}
+
+	err = dbP.Store(user3, dbName)
+	if err != nil {
+		t.Errorf("Error creating Record Record: %v Error: %s", user2, err.Error())
+	}
+
+	err = dbP.Store(user4, dbName)
+	if err != nil {
+		t.Errorf("Error creating Record Record: %v Error: %s", user2, err.Error())
+	}
+
+	err = dbP.Store(user5, dbName)
+	if err != nil {
+		t.Errorf("Error creating Record Record: %v Error: %s", user2, err.Error())
+	}
+
+	all_recs, err := dbP.GetAll(dbName)
+	if err != nil {
+		t.Errorf("Error getting all Records Error: %s", err.Error())
+	}
+
+	if len(all_recs) != 5 {
+		t.Errorf("GetAll size incorrect Expected: %d Got: %d", 5, len(all_recs))
+	}
+
+	doAllRecordsCheck(t, all_recs)
+
+	recs1, cookie, err := dbP.GetLimited(dbName, 2, nil)
+	if err != nil {
+		t.Errorf("Error getting Records Error: %s", err.Error())
+	}
+
+	if len(recs1) != 2 {
+		t.Errorf("GetAll size incorrect Expected: %d Got: %d", 2, len(recs1))
+	}
+
+	id := int64(binary.LittleEndian.Uint64(cookie))
+	cookie_user := UserRecord{
+		ID: int(id),
+	}
+
+	recs2, cookie, err := dbP.GetLimited(dbName, 1, cookie_user)
+	if err != nil {
+		t.Errorf("Error getting Records Error: %s", err.Error())
+	}
+
+	id = int64(binary.LittleEndian.Uint64(cookie))
+	cookie_user2 := UserRecord{
+		ID: int(id),
+	}
+
+	if len(recs2) != 1 {
+		t.Errorf("GetAll size incorrect Expected: %d Got: %d", 1, len(recs2))
+	}
+
+	recs3, _, err := dbP.GetLimited(dbName, 2, cookie_user2)
+	if err != nil {
+		t.Errorf("Error getting Records Error: %s", err.Error())
+	}
+
+	if len(recs3) != 2 {
+		t.Errorf("GetAll size incorrect Expected: %d Got: %d", 2, len(recs3))
+	}
+
+	all_recs2 := make([][]byte, 0)
+	appendRecords(all_recs2, recs1)
+	appendRecords(all_recs2, recs2)
+	appendRecords(all_recs2, recs3)
+
+	doAllRecordsCheck(t, all_recs2)
+
+	_, err = dbP.GetAll("RANDOM_BUCKET")
+	if err != bolt.ErrBucketNotFound {
+		t.Errorf("Expected Error: %v Got: %v", bolt.ErrBucketNotFound, err.Error())
+	}
+
+	_, _, err = dbP.GetLimited("RANDOM_BUCKET", 5, nil)
+	if err != bolt.ErrBucketNotFound {
+		t.Errorf("Expected Error: %v Got: %v", bolt.ErrBucketNotFound, err.Error())
+	}
+
+	// Send cookie out of range
+	id = 20
+	cookie_user = UserRecord{
+		ID: int(id),
+	}
+
+	_, _, err = dbP.GetLimited(dbName, 2, cookie_user)
+	if err != bolt.ErrKeyRequired {
+		t.Error("Expected error while getting out of range cookie. Instead got success.")
+	}
+
+	dbP.PrintStats()
+	removeDbFile(dbP.DbFullName)
+}
+
+func appendRecords(dst, src [][]byte) [][]byte {
+	for x := range src  {
+		dst = append(dst, src[x])
+	}
+	return dst
+}
+
+func doAllRecordsCheck(t *testing.T, all_recs [][] byte) {
+	for x := range all_recs {
+		user := UserRecord{}
+		err := json.Unmarshal(all_recs[x], &user)
+		if err != nil {
+			t.Errorf("Error unmarshalling User Record Error: %s", err.Error())
+		}
+		switch {
+		case x == 4:
+			if user.Name != user1.Name || user.ID != user1.ID || user.Position != user1.Position {
+				t.Errorf("Found order of results incorrect Expected: %v Found: %v", user1, user)
+			}
+			break
+		case x == 3:
+			if user.Name != user2.Name || user.ID != user2.ID || user.Position != user2.Position {
+				t.Errorf("Found order of results incorrect Expected: %v Found: %v", user2, user)
+			}
+			break
+		case x == 2:
+			if user.Name != user3.Name || user.ID != user3.ID || user.Position != user3.Position {
+				t.Errorf("Found order of results incorrect Expected: %v Found: %v", user3, user)
+			}
+			break
+		case x == 1:
+			if user.Name != user4.Name || user.ID != user4.ID || user.Position != user4.Position {
+				t.Errorf("Found order of results incorrect Expected: %v Found: %v", user4, user)
+			}
+			break
+		case x == 0:
+			if user.Name != user5.Name || user.ID != user5.ID || user.Position != user5.Position {
+				t.Errorf("Found order of results incorrect Expected: %v Found: %v", user5, user)
+			}
+			break
+		}
+	}
 }

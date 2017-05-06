@@ -34,25 +34,25 @@ func main() {
 
 	record1 := UserRecord{
 		ID: 1,
-		Name: "Alok",
+		Name: "Alan",
 		Position:"Engineer",
 	}
 
 	record2 := UserRecord{
 		ID: 2,
-		Name: "Sneha",
+		Name: "April",
 		Position:"Doctor",
 	}
 
 	record3 := UserRecord{
 		ID: 3,
-		Name: "Ameya",
+		Name: "Olof",
 		Position:"Engineer",
 	}
 
 	record4 := UserRecord{
 		ID: 4,
-		Name: "Rashmi",
+		Name: "Summer",
 		Position:"HR",
 	}
 
