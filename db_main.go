@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"encoding/json"
+	"fmt"
 )
 
 const MAX_KEY_LEN = 1024 //bytes
@@ -90,6 +91,7 @@ func (db *DumbDB) Get(key []byte, bucket string) (ret_val []byte, err error) {
 		}
 
 		ret_val = bkt.Get(key)
+		fmt.Println(ret_val)
 		if ret_val != nil {
 			db.info_log.Println("Found key.")
 			return nil
@@ -99,6 +101,39 @@ func (db *DumbDB) Get(key []byte, bucket string) (ret_val []byte, err error) {
 	})
 	return
 }
+
+/*
+ * GetMultiple
+ * GetMultiple values given multiple keys
+ * @param 	keys		[][]byte slice containing keys
+ * @param 	bucket		name of bucket
+ * @returns 	values		return values as slices of byte slice
+ */
+func (db *DumbDB) GetMultiple(keys [][]byte, bucket string) (values [][]byte, err error) {
+
+	err = db.dbP.View(func(tx *bolt.Tx) error {
+		bkt := tx.Bucket([]byte(bucket))
+		if bkt == nil {
+			db.err_log.Println("Bucket not created yet.")
+			return bolt.ErrBucketNotFound
+		}
+
+		for _, key := range keys {
+			value := bkt.Get(key)
+			if value != nil {
+				values = append(values, value)
+			} else {
+				db.info_log.Println("Could not find value for key:%s", key)
+			}
+
+		}
+		// Will return empty array if no error occurred
+		return nil
+	})
+
+	return
+}
+
 
 /*
  * GetAll
