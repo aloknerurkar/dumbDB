@@ -221,9 +221,9 @@ func TestDumbDB_GetMultiple(t *testing.T) {
 		t.Errorf("Error deleting Record Record: %v Error: %s", User2, err.Error())
 	}
 
-	returned_records, err := dbP.GetMultiple(keys, dbName)
-	if len(returned_records) != 0 {
-		t.Errorf("Got incorrect values Expected: 0 records Got: %v", len(returned_records))
+	_, err = dbP.GetMultiple(keys, dbName)
+	if err != bolt.ErrInvalid {
+		t.Errorf("Expected Error: %v Got: %v", bolt.ErrInvalid, err.Error())
 	}
 
 	_, err = dbP.GetMultiple(keys, "RANDOM_BUCKET")

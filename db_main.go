@@ -123,7 +123,8 @@ func (db *DumbDB) GetMultiple(keys [][]byte, bucket string) (values [][]byte, er
 			if value != nil {
 				values = append(values, value)
 			} else {
-				db.info_log.Println("Could not find value for key:%s", key)
+				db.err_log.Println("Could not find value for key:%s", key)
+				return bolt.ErrInvalid
 			}
 
 		}
