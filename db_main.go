@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"encoding/json"
-	"fmt"
 )
 
 const MAX_KEY_LEN = 1024 //bytes
@@ -91,7 +90,6 @@ func (db *DumbDB) Get(key []byte, bucket string) (ret_val []byte, err error) {
 		}
 
 		ret_val = bkt.Get(key)
-		fmt.Println(ret_val)
 		if ret_val != nil {
 			db.info_log.Println("Found key.")
 			return nil
@@ -124,6 +122,7 @@ func (db *DumbDB) GetMultiple(keys [][]byte, bucket string) (values [][]byte, er
 				values = append(values, value)
 			} else {
 				db.err_log.Println("Could not find value for key:%s", key)
+				values = nil
 				return bolt.ErrInvalid
 			}
 
