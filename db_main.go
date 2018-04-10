@@ -125,15 +125,12 @@ func (db *DumbDB) GetMultiple(keys [][]byte, bucket string) (values [][]byte, er
 				values = nil
 				return bolt.ErrInvalid
 			}
-
 		}
 		// Will return empty array if no error occurred
 		return nil
 	})
-
 	return
 }
-
 
 /*
  * GetAll
