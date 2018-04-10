@@ -101,6 +101,38 @@ func (db *DumbDB) Get(key []byte, bucket string) (ret_val []byte, err error) {
 }
 
 /*
+ * GetMultiple
+ * GetMultiple values given multiple keys
+ * @param 	keys		[][]byte slice containing keys
+ * @param 	bucket		name of bucket
+ * @returns 	values		return values as slices of byte slice
+ */
+func (db *DumbDB) GetMultiple(keys [][]byte, bucket string) (values [][]byte, err error) {
+
+	err = db.dbP.View(func(tx *bolt.Tx) error {
+		bkt := tx.Bucket([]byte(bucket))
+		if bkt == nil {
+			db.err_log.Println("Bucket not created yet.")
+			return bolt.ErrBucketNotFound
+		}
+
+		for _, key := range keys {
+			value := bkt.Get(key)
+			if value != nil {
+				values = append(values, value)
+			} else {
+				db.err_log.Println("Could not find value for key:%s", key)
+				values = nil
+				return bolt.ErrInvalid
+			}
+		}
+		// Will return empty array if no error occurred
+		return nil
+	})
+	return
+}
+
+/*
  * GetAll
  * Get all records from a bucket.
  * @param 	bucket		name of bucket

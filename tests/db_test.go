@@ -172,6 +172,70 @@ func TestDumbDB_Get(t *testing.T) {
 }
 
 // 1. Create 2 test records and store
+// 2. Get both the records together
+// 3. Remove the 2 records stored. Should not return error.
+// 4. Providing keys that doesn't exist will return an empty array
+// 5. Getting a random bucket will return an error
+func TestDumbDB_GetMultiple(t *testing.T) {
+
+	dbName := "TestDumbDB_GetMultiple"
+	dbP := dDB.NewDumbDB(".", dbName, os.Stdout)
+
+	if dbP == nil {
+		t.Errorf("Error creating DB %s", dbName)
+	}
+
+	err := dbP.Store(User1.GetRecord(), dbName)
+	if err != nil {
+		t.Errorf("Error creating Record Record: %v Error: %s", User1, err.Error())
+	}
+
+	err = dbP.Store(User2.GetRecord(), dbName)
+	if err != nil {
+		t.Errorf("Error creating Record Record: %v Error: %s", User2, err.Error())
+	}
+
+	keys := [][]byte{[]byte(User1.GetKey()), []byte(User2.GetKey())}
+	rec_records, err := dbP.GetMultiple(keys, dbName)
+	if err != nil {
+		t.Errorf("Error getting Record Record: %v Error: %s", keys, err.Error())
+	}
+
+	rec_record_1 := UserRecord{}
+	rec_record_1 = rec_record_1.PutVal(rec_records[0])
+	rec_record_2 := UserRecord{}
+	rec_record_2 = rec_record_2.PutVal(rec_records[1])
+
+	if rec_record_1.Name != User1.Name || rec_record_1.ID != User1.ID || rec_record_1.Position != User1.Position ||
+		rec_record_2.Name != User2.Name || rec_record_2.ID != User2.ID || rec_record_2.Position != User2.Position {
+		t.Errorf("Got incorrect value. Expected: %v %v Got: %v %v", User1, User2, rec_record_1, rec_record_2)
+	}
+
+	err = dbP.Remove(User1.GetKey(), dbName)
+	if err != nil {
+		t.Errorf("Error deleting Record Record: %v Error: %s", User1, err.Error())
+	}
+
+	err = dbP.Remove(User2.GetKey(), dbName)
+	if err != nil {
+		t.Errorf("Error deleting Record Record: %v Error: %s", User2, err.Error())
+	}
+
+	_, err = dbP.GetMultiple(keys, dbName)
+	if err != bolt.ErrInvalid {
+		t.Errorf("Expected Error: %v Got: %v", bolt.ErrInvalid, err.Error())
+	}
+
+	_, err = dbP.GetMultiple(keys, "RANDOM_BUCKET")
+	if err != bolt.ErrBucketNotFound {
+		t.Errorf("Expected Error: %v Got: %v", bolt.ErrBucketNotFound, err.Error())
+	}
+
+	dbP.PrintStats()
+	removeDbFile(dbP.DbFullName)
+}
+
+// 1. Create 2 test records and store
 // 2. Remove the 2 records stored. Should not return error.
 // 3. Try to remove by sending huge key. => This should fail
 func TestDumbDB_GetAllRange(t *testing.T) {
